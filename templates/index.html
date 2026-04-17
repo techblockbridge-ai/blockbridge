@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockBridge — Aave V3 Intelligence</title>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0: #070b0f;
+  --bg1: #0c1219;
+  --bg2: #111820;
+  --bg3: #18212c;
+  --bg4: #1e2a38;
+  --border: rgba(99,163,255,0.10);
+  --border-hi: rgba(99,163,255,0.22);
+  --text-primary: #e2eaf4;
+  --text-secondary: #7a90a8;
+  --text-muted: #3d5268;
+  --accent: #3b82f6;
+  --accent-glow: rgba(59,130,246,0.18);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.12);
+  --purple: #a78bfa;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --radius: 10px;
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Subtle grid bg */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── LAYOUT ─── */
+.shell { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+header {
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,11,15,0.9);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 26px; height: 26px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.logo-sub { color: var(--text-muted); font-weight: 400; font-size: 0.78rem; }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+
+.live-indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+}
+
+.pulse-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.4)} 50%{opacity:0.6;box-shadow:0 0 0 4px rgba(34,197,94,0)} }
+
+.last-update { font-family: var(--mono); font-size: 0.68rem; color: var(--text-muted); }
+
+main { padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ─── SECTION TITLES ─── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* ─── STAT CARDS ─── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  cursor: default;
+  transition: border-color var(--transition), background var(--transition);
+  position: relative;
+  overflow: visible;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-color, var(--accent));
+  opacity: 0.6;
+}
+.stat-card:hover { border-color: var(--border-hi); background: var(--bg3); }
+
+.stat-label-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 0.5rem;
+}
+.stat-label-text { font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; }
+.info-icon {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--bg4);
+  border: 1px solid var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  color: var(--text-muted);
+  cursor: help;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+.info-icon:hover { background: var(--accent); color: #fff; }
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-meta { font-size: 0.68rem; color: var(--text-muted); }
+
+/* ─── TOOLTIP ─── */
+.tooltip-wrap { position: relative; display: inline-flex; }
+.tooltip {
+  position: absolute;
+  top: calc(100% + 8px); bottom: auto;
+  left: 50%;
+  transform: none; left: 0;
+  background: var(--bg4);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 240px;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.tooltip strong { color: var(--accent); display: block; margin-bottom: 4px; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; }
+.tooltip-wrap:hover .tooltip { opacity: 1; }
+
+/* ─── CONTROLS PANEL ─── */
+.controls-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.control-group { display: flex; flex-direction: column; gap: 8px; }
+
+.control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.control-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.control-value {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 48px;
+  text-align: right;
+}
+
+/* Range slider */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg0);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  transition: box-shadow var(--transition);
+}
+input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 5px var(--accent-glow); }
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg0);
+}
+
+/* Number input */
+.number-input-wrap { position: relative; }
+.number-input-wrap input[type=number] {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.number-input-wrap input[type=number]:focus { border-color: var(--accent); }
+.number-input-wrap input::-webkit-outer-spin-button,
+.number-input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+/* Select */
+select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a90a8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+select:focus { border-color: var(--accent); }
+
+/* Toggle group */
+.toggle-group { display: flex; gap: 4px; background: var(--bg3); border-radius: 6px; padding: 3px; border: 1px solid var(--border); }
+.toggle-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.toggle-btn.active { background: var(--accent); color: #fff; }
+
+.apply-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+  font-family: var(--sans);
+}
+.apply-btn:hover { background: #2563eb; }
+.apply-btn:active { transform: scale(0.97); }
+
+.reset-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+  font-family: var(--sans);
+}
+.reset-btn:hover { border-color: var(--border-hi); color: var(--text-primary); }
+
+.controls-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+.controls-explainer {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex: 1;
+  line-height: 1.5;
+}
+.controls-explainer strong { color: var(--text-secondary); }
+
+/* ─── ANOMALY TABLE ─── */
+.table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: visible;
+}
+
+.table-toolbar {
+  padding: 0.875rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  flex: 1;
+  max-width: 280px;
+}
+.search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: var(--sans);
+  width: 100%;
+}
+.search-box input::placeholder { color: var(--text-muted); }
+
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--mono);
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+.chip.chip-high.active { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+.chip.chip-medium.active { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+.chip.chip-low.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+.sort-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 28px 6px 10px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a90a8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+table { width: 100%; border-collapse: collapse; }
+
+thead th {
+  background: var(--bg1);
+  padding: 0.6rem 1rem;
+  text-align: left;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition);
+}
+thead th:hover { color: var(--text-secondary); }
+thead th.sorted { color: var(--accent); }
+thead th .sort-arrow { margin-left: 4px; opacity: 0.5; }
+thead th.sorted .sort-arrow { opacity: 1; }
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  cursor: pointer;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg3); }
+tbody tr.expanded { background: var(--bg3); }
+
+td { padding: 0.75rem 1rem; vertical-align: middle; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+.badge-HIGH { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.badge-HIGH .badge-dot { background: var(--red); }
+.badge-MEDIUM { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.badge-MEDIUM .badge-dot { background: var(--amber); }
+.badge-LOW { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.badge-LOW .badge-dot { background: var(--green); }
+
+.asset-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.2);
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--purple);
+  font-family: var(--mono);
+}
+
+.amount-cell { font-family: var(--mono); font-size: 0.82rem; color: var(--text-primary); font-weight: 500; }
+.zscore-cell { font-family: var(--mono); font-size: 0.78rem; color: var(--text-secondary); }
+.ts-cell { font-family: var(--mono); font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+.wallet-cell { font-family: var(--mono); font-size: 0.7rem; color: #58a6ff; }
+
+/* Risk bar */
+.risk-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.risk-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg4);
+  border-radius: 2px;
+  overflow: visible;
+  min-width: 60px;
+}
+.risk-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.risk-score-num { font-family: var(--mono); font-size: 0.75rem; font-weight: 600; min-width: 28px; text-align: right; }
+
+
+
+/* ─── BORROW FEED ─── */
+.feed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.feed-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: visible; }
+.feed-header { padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.feed-title { font-family: var(--mono); font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; }
+.feed-count { font-family: var(--mono); font-size: 0.68rem; color: var(--text-muted); background: var(--bg4); padding: 2px 7px; border-radius: 4px; }
+
+.borrow-list { max-height: 320px; overflow-y: auto; }
+.borrow-list::-webkit-scrollbar { width: 4px; }
+.borrow-list::-webkit-scrollbar-track { background: transparent; }
+.borrow-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.borrow-row {
+  display: grid;
+  grid-template-columns: 60px 70px 1fr 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  font-size: 0.78rem;
+}
+.borrow-row:last-child { border-bottom: none; }
+.borrow-row:hover { background: var(--bg3); }
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.empty-state svg { display: block; margin: 0 auto 12px; opacity: 0.3; }
+
+/* ─── ALERT BANNER ─── */
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--amber);
+  margin-bottom: 0.25rem;
+}
+.alert-banner strong { font-weight: 600; }
+
+/* ─── THRESHOLD EXPLAINER ─── */
+.explainer-strip {
+  background: rgba(59,130,246,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.explainer-strip .icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.explainer-strip a { color: var(--accent); text-decoration: none; }
+.explainer-strip a:hover { text-decoration: underline; }
+
+/* ─── LOADING SHIMMER ─── */
+.shimmer {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ─── HTMX INDICATOR ─── */
+.htmx-indicator { opacity: 0; transition: opacity 0.2s; }
+.htmx-request .htmx-indicator { opacity: 1; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2,1fr); }
+  .controls-grid { grid-template-columns: 1fr 1fr; }
+  .feed-grid { grid-template-columns: 1fr; }
+  .expand-content { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  main { padding: 1rem; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .controls-grid { grid-template-columns: 1fr; }
+}
+
+.expand-row { display: none; }
+.expand-row.open { display: table-row; }
+.expand-cell { padding: 0 !important; background: #0c1219; border-bottom: 2px solid rgba(59,130,246,0.2) !important; }
+.expand-inner { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.875rem; }
+.meta-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.narrative-box { background: #111820; border: 1px solid rgba(99,163,255,0.10); border-left: 3px solid #3b82f6; border-radius: 8px; padding: 12px 14px; font-size: 0.8rem; color: #7a90a8; line-height: 1.65; }
+.narrative-box-label { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: #3b82f6; letter-spacing: 0.1em; margin-bottom: 6px; }
+.chat-panel { background: #070b0f; border: 1px solid rgba(59,130,246,0.22); border-radius: 10px; overflow: hidden; margin-top: 0; }
+.chat-panel-header { padding: 10px 14px; border-bottom: 1px solid rgba(99,163,255,0.10); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: #0c1219; }
+.chat-panel-title { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: #e2eaf4; }
+.ai-badge { background: #3b82f6; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.08em; }
+.scope-row { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: #3d5268; font-family: 'JetBrains Mono', monospace; flex-wrap: wrap; }
+.scope-pill { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: #3b82f6; padding: 1px 7px; border-radius: 4px; font-size: 0.62rem; }
+.suggested-section { padding: 10px 14px; border-bottom: 1px solid rgba(99,163,255,0.10); }
+.sq-heading { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: #3d5268; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; }
+.sq-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.sq-btn { padding: 5px 11px; border-radius: 20px; border: 1px solid rgba(99,163,255,0.15); background: #111820; color: #7a90a8; font-size: 0.72rem; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+.sq-btn:hover { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.08); }
+.msg-thread { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; background: #070b0f; }
+.msg-thread:empty { display: none; padding: 0; }
+.msg { display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.bot { align-items: flex-start; }
+.msg-bubble { max-width: 82%; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; line-height: 1.6; }
+.msg.user .msg-bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: 3px; }
+.msg.bot .msg-bubble { background: #111820; border: 1px solid rgba(99,163,255,0.12); color: #7a90a8; border-bottom-left-radius: 3px; }
+.msg.bot.err .msg-bubble { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.25); color: #ef4444; }
+.msg-time { font-size: 0.6rem; color: #3d5268; font-family: 'JetBrains Mono', monospace; margin-top: 3px; padding: 0 4px; }
+.typing { display: flex; align-items: center; gap: 4px; padding: 8px 12px; background: #111820; border: 1px solid rgba(99,163,255,0.12); border-radius: 8px; border-bottom-left-radius: 3px; width: fit-content; }
+.tdot { width: 5px; height: 5px; border-radius: 50%; background: #3d5268; animation: tdot 1.2s ease-in-out infinite; }
+.tdot:nth-child(2) { animation-delay: 0.2s; }
+.tdot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes tdot { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+.chat-bar { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid rgba(99,163,255,0.10); background: #0c1219; }
+.chat-bar input { flex: 1; background: #111820; border: 1px solid rgba(99,163,255,0.15); border-radius: 6px; padding: 8px 12px; color: #e2eaf4; font-size: 0.82rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.15s; }
+.chat-bar input:focus { border-color: #3b82f6; }
+.chat-bar input::placeholder { color: #3d5268; }
+.send-btn { background: #3b82f6; border: none; border-radius: 6px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; flex-shrink: 0; transition: background 0.15s; }
+.send-btn:hover { background: #2563eb; }
+.send-btn:disabled { background: #1e2a38; cursor: not-allowed; }
+.chat-footer { padding: 5px 14px 8px; font-size: 0.6rem; color: #3d5268; font-family: 'JetBrains Mono', monospace; background: #0c1219; border-top: 1px solid rgba(99,163,255,0.06); }
+.asset-cb-label { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:4px; border:1px solid var(--border); background:var(--bg3); color:var(--text-secondary); font-size:0.68rem; font-family:var(--mono); cursor:pointer; transition:all var(--transition); }
+.asset-cb-label:hover { border-color:var(--accent); color:var(--accent); }
+.asset-cb-label input { accent-color:var(--accent); cursor:pointer; }
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">BB</div>
+    BlockBridge
+    <span class="logo-sub">/ Aave V3 Intelligence</span>
+  </div>
+  <div class="header-right">
+    <a href="/weather" style="font-family:var(--mono);font-size:0.68rem;color:var(--text-muted);text-decoration:none;padding:5px 10px;border:1px solid rgba(99,163,255,0.10);border-radius:6px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(99,163,255,0.10)';this.style.color='var(--text-muted)'">☀ Weather Report</a>
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>LIVE</span>
+    </div>
+    <div class="last-update" id="last-update-ts">Syncing...</div>
+  </div>
+</header>
+
+<main>
+
+<!-- STATS ROW -->
+<div>
+  <div class="section-label">Overview</div>
+  <div class="stats-grid" id="stats-grid"
+       hx-get="/api/stats-fragment"
+       hx-trigger="every 60s"
+       hx-swap="outerHTML">
+
+    <div class="stat-card" style="--accent-color: var(--purple)">
+      <div class="stat-label-row">
+        <span class="stat-label-text">Total borrows</span>
+        <div class="tooltip-wrap">
+          <div class="info-icon">?</div>
+          <div class="tooltip">
+            <strong>TOTAL BORROWS</strong>
+            Total borrow events ingested from Aave V3 via The Graph subgraph. Updated every 60 seconds. Each event represents one wallet borrowing an asset from the protocol.
+          </div>
+        </div>
+      </div>
+      <div class="stat-value" style="color:var(--purple)" id="stat-borrows">{{ stats.get('total_borrows', 0) }}</div>
+      <div class="stat-meta">across all assets</div>
+    </div>
+
+    <div class="stat-card" style="--accent-color: var(--amber)">
+      <div class="stat-label-row">
+        <span class="stat-label-text">Anomalies flagged</span>
+        <div class="tooltip-wrap">
+          <div class="info-icon">?</div>
+          <div class="tooltip">
+            <strong>ANOMALIES FLAGGED</strong>
+            Borrow events where the z-score exceeds the configured threshold. Z-score measures how many standard deviations a borrow is above the rolling mean for that asset. Adjust the threshold in the controls below.
+          </div>
+        </div>
+      </div>
+      <div class="stat-value" style="color:var(--amber)" id="stat-anomalies">{{ stats.get('total_anomalies', 0) }}</div>
+      <div class="stat-meta">z-score ≥ <span id="stat-threshold-display">2.0</span>σ</div>
+    </div>
+
+    <div class="stat-card" style="--accent-color: var(--red)">
+      <div class="stat-label-row">
+        <span class="stat-label-text">High risk events</span>
+        <div class="tooltip-wrap">
+          <div class="info-icon">?</div>
+          <div class="tooltip">
+            <strong>HIGH RISK EVENTS</strong>
+            Anomalies with a risk score ≥ 7/10. Risk score is derived from z-score magnitude — higher deviation means higher risk. These events warrant immediate investigation.
+          </div>
+        </div>
+      </div>
+      <div class="stat-value" style="color:var(--red)" id="stat-high-risk">{{ stats.get('high_risk_count', 0) }}</div>
+      <div class="stat-meta">risk score ≥ 7.0</div>
+    </div>
+
+    <div class="stat-card" style="--accent-color: var(--green)">
+      <div class="stat-label-row">
+        <span class="stat-label-text">Last ingest</span>
+        <div class="tooltip-wrap">
+          <div class="info-icon">?</div>
+          <div class="tooltip">
+            <strong>LAST INGEST</strong>
+            Timestamp of the most recent successful data pull from The Graph. The system polls every 60 seconds. If this is stale, check your API key and network connectivity.
+          </div>
+        </div>
+      </div>
+      <div class="stat-value" style="font-size:0.9rem;padding-top:6px;color:var(--green)" id="stat-last-ingest">
+        {{ stats.get('last_ingest', 'N/A')[:19].replace('T',' ') if stats.get('last_ingest') else 'N/A' }}
+      </div>
+      <div class="stat-meta">UTC · 60s poll interval</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DETECTION CONTROLS -->
+<div>
+  <div class="section-label">Detection controls
+    <span style="font-size:0.62rem;color:var(--accent);margin-left:4px">tweak parameters · results update instantly</span>
+  </div>
+
+  <div class="controls-panel">
+
+    <div class="controls-grid">
+
+      <!-- Z-Score Threshold -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Z-Score threshold
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>Z-SCORE THRESHOLD</strong>
+                The minimum number of standard deviations above the asset mean before a borrow is flagged. Lower = more sensitive (more alerts). Higher = only extreme outliers flagged. Industry standard: 2.0–3.0. The CRV exploit reached z=4.8 at peak.
+              </div>
+            </div>
+          </div>
+          <span class="control-value" id="zscore-display">2.0σ</span>
+        </div>
+        <input type="range" id="zscore-threshold" min="1.0" max="5.0" step="0.1" value="2.0"
+               oninput="updateZScore(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text-muted);font-family:var(--mono)">
+          <span>1.0 · sensitive</span>
+          <span>5.0 · extreme only</span>
+        </div>
+      </div>
+
+      <!-- Rolling Window -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Rolling window
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>ROLLING WINDOW</strong>
+                Number of recent borrow events used to calculate the mean and standard deviation for each asset. Smaller window = faster adaptation but noisier. Larger window = more stable baseline but slower to adapt to regime changes.
+              </div>
+            </div>
+          </div>
+          <span class="control-value" id="window-display">50</span>
+        </div>
+        <input type="range" id="rolling-window" min="10" max="200" step="5" value="50"
+               oninput="updateWindow(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text-muted);font-family:var(--mono)">
+          <span>10 · reactive</span>
+          <span>200 · stable</span>
+        </div>
+      </div>
+
+      <!-- Min Borrow Size Filter -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Min borrow size (USD)
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>MINIMUM BORROW SIZE</strong>
+                Filter out small borrows below this USD value. Useful for removing noise from micro-transactions which can skew the baseline. Set to 0 to include all borrows. Recommended: $1,000 for production monitoring.
+              </div>
+            </div>
+          </div>
+          <span class="control-value" id="minsize-display">$0</span>
+        </div>
+        <input type="range" id="min-borrow-size" min="0" max="100000" step="1000" value="0"
+               oninput="updateMinSize(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text-muted);font-family:var(--mono)">
+          <span>$0 · all borrows</span>
+          <span>$100k</span>
+        </div>
+      </div>
+
+      <!-- Asset Filter -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Asset filter
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>ASSET FILTER</strong>
+                Select one or more assets to monitor. Uncheck assets to hide them from the anomaly feed.
+              </div>
+            </div>
+          </div>
+          <span class="control-value" id="asset-filter-count" style="font-size:0.68rem">All</span>
+        </div>
+        <div id="asset-checkboxes" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="USDC" onchange="updateAssetFilter()" checked> USDC</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="USDT" onchange="updateAssetFilter()" checked> USDT</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="WETH" onchange="updateAssetFilter()" checked> WETH</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="WBTC" onchange="updateAssetFilter()" checked> WBTC</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="DAI"  onchange="updateAssetFilter()" checked> DAI</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="GHO"  onchange="updateAssetFilter()" checked> GHO</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="CRV"  onchange="updateAssetFilter()" checked> CRV</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="LINK" onchange="updateAssetFilter()" checked> LINK</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="AAVE" onchange="updateAssetFilter()" checked> AAVE</label>
+          <label class="asset-cb-label"><input type="checkbox" class="asset-cb" value="USDe" onchange="updateAssetFilter()" checked> USDe</label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="reset-btn" style="padding:3px 8px;font-size:0.68rem" onclick="setAllAssets(true)">All</button>
+          <button class="reset-btn" style="padding:3px 8px;font-size:0.68rem" onclick="setAllAssets(false)">None</button>
+        </div>
+      </div>
+
+      <!-- Detection Mode -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Detection mode
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>DETECTION MODE</strong>
+                <strong style="color:var(--text-secondary);font-family:var(--sans);font-size:0.75rem;margin-top:4px;display:block">Standard:</strong> Z-score on absolute borrow amount.
+                <strong style="color:var(--text-secondary);font-family:var(--sans);font-size:0.75rem;display:block">Velocity:</strong> Z-score on rate-of-change between consecutive borrows — catches building positions faster.
+                <strong style="color:var(--text-secondary);font-family:var(--sans);font-size:0.75rem;display:block">Combined:</strong> Both signals, higher sensitivity.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="toggle-group">
+          <button class="toggle-btn active" onclick="setMode('standard',this)">Standard</button>
+          <button class="toggle-btn" onclick="setMode('velocity',this)">Velocity</button>
+          <button class="toggle-btn" onclick="setMode('combined',this)">Combined</button>
+        </div>
+      </div>
+
+      <!-- Poll Interval -->
+      <div class="control-group">
+        <div class="control-header">
+          <div class="control-label">
+            Poll interval (seconds)
+            <div class="tooltip-wrap">
+              <div class="info-icon">?</div>
+              <div class="tooltip">
+                <strong>POLL INTERVAL</strong>
+                How often to query The Graph for new borrow events. 60s is standard. Lower values give faster detection but consume more API quota. The free Graph tier allows 100k queries/month — at 60s that's ~43k/month.
+              </div>
+            </div>
+          </div>
+          <span class="control-value" id="poll-display">60s</span>
+        </div>
+        <input type="range" id="poll-interval" min="15" max="300" step="15" value="60"
+               oninput="updatePoll(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--text-muted);font-family:var(--mono)">
+          <span>15s · fast</span>
+          <span>300s · conservative</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="controls-footer">
+      <div class="controls-explainer">
+        Slider changes filter the <strong>client-side view</strong> immediately. Click <strong>Apply to engine</strong> to persist thresholds to the backend — the next detection cycle will use your new parameters.
+      </div>
+      <button class="reset-btn" onclick="resetControls()">Reset defaults</button>
+      <button class="apply-btn" onclick="applyToEngine()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Apply to engine
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ANOMALY FEED -->
+<div>
+  <div class="section-label">Anomaly feed</div>
+
+  <div class="table-wrap">
+    <div class="table-toolbar">
+      <div class="search-box">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="#3d5268" stroke-width="1.2"/><path d="M9 9l2.5 2.5" stroke="#3d5268" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <input type="text" id="search-input" placeholder="Search asset, wallet..." oninput="filterTable()">
+      </div>
+      <div class="filter-chips">
+        <button class="chip active" data-filter="ALL" onclick="setChipFilter('ALL',this)">All</button>
+        <button class="chip chip-high" data-filter="HIGH" onclick="setChipFilter('HIGH',this)">High</button>
+        <button class="chip chip-medium" data-filter="MEDIUM" onclick="setChipFilter('MEDIUM',this)">Medium</button>
+        <button class="chip chip-low" data-filter="LOW" onclick="setChipFilter('LOW',this)">Low</button>
+      </div>
+      <div class="filter-chips" style="margin-left:4px">
+        <button class="chip active" data-cfilter="ALL"      onclick="setContractFilter('ALL',this)">All</button>
+        <button class="chip"        data-cfilter="WALLET"   onclick="setContractFilter('WALLET',this)">Wallets only</button>
+        <button class="chip"        data-cfilter="CONTRACT" onclick="setContractFilter('CONTRACT',this)">Contracts only</button>
+      </div>
+      <select class="sort-select" id="sort-select" onchange="sortTable()">
+        <option value="detected_desc">Latest first</option>
+        <option value="risk_desc">Highest risk</option>
+        <option value="amount_desc">Largest amount</option>
+        <option value="zscore_desc">Highest z-score</option>
+      </select>
+    </div>
+
+    <div id="anomaly-table-body"
+         hx-get="/anomalies-table"
+         hx-trigger="every 60s[!window.paused]"
+         hx-swap="innerHTML"
+         hx-on::after-swap="reapplyContractLabels()">
+      {% include '_anomalies_interactive.html' %}
+    </div>
+  </div>
+</div>
+
+<!-- BORROW FEED -->
+<div>
+  <div class="section-label">Live borrow feed</div>
+  <div class="feed-grid">
+
+    <div class="feed-panel">
+      <div class="feed-header">
+        <span class="feed-title">Recent borrows</span>
+        <span class="feed-count" id="borrow-count">{{ borrows|length }}</span>
+      </div>
+      <div class="borrow-list" id="borrow-list"
+           hx-get="/borrows-feed"
+           hx-trigger="every 60s"
+           hx-swap="innerHTML">
+        {% include '_borrows_feed.html' %}
+      </div>
+    </div>
+
+    <div class="feed-panel">
+      <div class="feed-header">
+        <span class="feed-title">Asset distribution</span>
+        <div class="tooltip-wrap">
+          <div class="info-icon">?</div>
+          <div class="tooltip">
+            <strong>ASSET DISTRIBUTION</strong>
+            Breakdown of borrow events by asset in the current dataset. Dominated assets may indicate targeted position-building — a key early warning signal.
+          </div>
+        </div>
+      </div>
+      <div style="padding:1rem" id="asset-chart">
+        {% set ns = namespace(counts={}) %}
+        {% for b in borrows %}
+          {% set _ = ns.counts.update({b.asset: ns.counts.get(b.asset, 0) + 1}) %}
+        {% endfor %}
+        {% for asset, count in ns.counts.items() %}
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span class="asset-tag">{{ asset }}</span>
+            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--text-muted)">{{ count }} events</span>
+          </div>
+          <div class="risk-bar" style="height:6px">
+            <div class="risk-bar-fill" style="width:{{ (count / borrows|length * 100)|round(1) }}%;background:var(--accent)"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- EDUCATION STRIP -->
+<div class="explainer-strip">
+  <span class="icon">💡</span>
+  <div>
+    <strong style="color:var(--text-primary)">How anomaly detection works:</strong>
+    For each asset, BlockBridge maintains a rolling window of recent borrow amounts. When a new borrow arrives, it calculates the
+    <strong>z-score</strong> — the number of standard deviations above the mean. A z-score of 2.0 means the borrow is larger than ~97.7% of recent borrows for that asset.
+    The <strong>risk score (0–10)</strong> is derived from z-score magnitude, scaled between your threshold and 6σ.
+    The <strong>Ollama LLM</strong> (running locally on imhotep) generates a plain-language narrative for each flagged event.
+    <a href="https://en.wikipedia.org/wiki/Standard_score" target="_blank">Learn more about z-scores →</a>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ─── STATE ───
+const state = {
+  zscore: 2.0,
+  window: 50,
+  minSize: 0,
+  asset: 'ALL',
+  selectedAssets: new Set(['USDC','USDT','WETH','WBTC','DAI','GHO','CRV','LINK','AAVE','USDe']),
+  mode: 'standard',
+  poll: 60,
+  chipFilter: 'ALL',
+  contractFilter: 'ALL',
+  sortKey: 'detected_desc'
+};
+
+const defaults = { zscore:2.0, window:50, minSize:0, asset:'ALL', mode:'standard', poll:60 };
+
+// ─── CONTROL UPDATERS ───
+function updateZScore(v) {
+  state.zscore = parseFloat(v);
+  document.getElementById('zscore-display').textContent = parseFloat(v).toFixed(1) + 'σ';
+  document.getElementById('stat-threshold-display').textContent = parseFloat(v).toFixed(1);
+  filterTable();
+}
+
+function updateWindow(v) {
+  state.window = parseInt(v);
+  document.getElementById('window-display').textContent = v;
+}
+
+function updateMinSize(v) {
+  state.minSize = parseInt(v);
+  document.getElementById('minsize-display').textContent = '$' + parseInt(v).toLocaleString();
+  filterTable();
+}
+
+function updatePoll(v) {
+  state.poll = parseInt(v);
+  document.getElementById('poll-display').textContent = v + 's';
+}
+
+function updateFilters() {
+  // Legacy — asset filter now uses checkboxes via updateAssetFilter()
+  filterTable();
+}
+
+function setMode(mode, btn) {
+  state.mode = mode;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setChipFilter(filter, el) {
+  state.chipFilter = filter;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filterTable();
+}
+
+function sortTable() {
+  state.sortKey = document.getElementById('sort-select').value;
+  filterTable();
+}
+
+// ─── TABLE FILTER + SORT ───
+function filterTable() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const rows   = document.querySelectorAll('[data-anomaly-row]');
+
+  rows.forEach(row => {
+    const asset      = row.dataset.asset    || '';
+    const wallet     = row.dataset.wallet   || '';
+    const label      = row.dataset.label    || '';
+    const zscore     = parseFloat(row.dataset.zscore  || 0);
+    const amount     = parseFloat(row.dataset.amount  || 0);
+    const isContract = row.dataset.isContract === 'true';
+
+    const matchSearch   = !search ||
+      asset.toLowerCase().includes(search) ||
+      wallet.toLowerCase().includes(search);
+
+    const matchChip     = state.chipFilter === 'ALL' || label === state.chipFilter;
+    const matchAsset    = state.selectedAssets.size === 0 || state.selectedAssets.has(asset);
+    const matchMin      = amount >= state.minSize;
+    const matchZ        = zscore >= state.zscore;
+    const matchContract = state.contractFilter === 'ALL' ||
+      (state.contractFilter === 'CONTRACT' && isContract) ||
+      (state.contractFilter === 'WALLET'   && !isContract);
+
+    const expand  = document.querySelector(`[data-expand-for="${row.dataset.rowId}"]`);
+    const visible = matchSearch && matchChip && matchAsset && matchMin && matchZ && matchContract;
+
+    row.style.display = visible ? '' : 'none';
+    if (expand) expand.style.display = 'none';
+  });
+}
+
+function updateAssetFilter() {
+  const checked = [...document.querySelectorAll('.asset-cb:checked')].map(cb => cb.value);
+  state.selectedAssets = new Set(checked);
+  const total = document.querySelectorAll('.asset-cb').length;
+  document.getElementById('asset-filter-count').textContent =
+    checked.length === total ? 'All' : checked.length + ' selected';
+  filterTable();
+}
+
+function setAllAssets(checked) {
+  document.querySelectorAll('.asset-cb').forEach(cb => cb.checked = checked);
+  updateAssetFilter();
+}
+
+function setContractFilter(filter, btn) {
+  state.contractFilter = filter;
+  document.querySelectorAll('[data-cfilter]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterTable();
+}
+
+// ─── ROW EXPAND ───
+function toggleRow(rowId) {
+  const row = document.querySelector(`[data-anomaly-row][data-row-id="${rowId}"]`);
+  const expand = document.querySelector(`[data-expand-for="${rowId}"]`);
+
+  if (!row || !expand) return;
+
+  const isOpen = expand.classList.contains('open');
+
+  // Close all rows
+  document.querySelectorAll('[data-anomaly-row].expanded')
+    .forEach(r => r.classList.remove('expanded'));
+
+  document.querySelectorAll('.expand-row.open')
+    .forEach(e => {
+      e.classList.remove('open');
+      e.style.display = 'none';
+    });
+
+  // Open selected row
+  if (!isOpen) {
+    row.classList.add('expanded');
+    expand.classList.add('open');
+    expand.style.display = 'table-row';
+  }
+}
+
+// ─── APPLY TO ENGINE ───
+function applyToEngine() {
+  const params = {
+    zscore_threshold: state.zscore,
+    rolling_window: state.window,
+    min_borrow_size: state.minSize
+  };
+
+  const btn = document.querySelector('.apply-btn');
+  const origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="htmx-indicator" style="opacity:1">Applying...</span>';
+
+  fetch('/api/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(params)
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('Backend returned ' + r.status);
+    return r.json();
+  })
+  .then(d => {
+    if (d.status === 'applied') {
+      btn.innerHTML = '✓ Applied — next detection cycle will use new params';
+      btn.style.background = 'var(--green)';
+    } else {
+      btn.innerHTML = '⚠ Unexpected response';
+      btn.style.background = 'var(--amber)';
+    }
+    setTimeout(() => { btn.innerHTML = origHTML; btn.style.background = ''; btn.disabled = false; }, 3000);
+  })
+  .catch((err) => {
+    btn.innerHTML = '✗ Backend unreachable — not saved';
+    btn.style.background = 'var(--red)';
+    setTimeout(() => { btn.innerHTML = origHTML; btn.style.background = ''; btn.disabled = false; }, 3000);
+  });
+}
+
+// ─── LOAD PERSISTED CONFIG FROM BACKEND ───
+function loadPersistedConfig() {
+  fetch('/api/config')
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg.zscore_threshold !== undefined) {
+        const z = parseFloat(cfg.zscore_threshold);
+        document.getElementById('zscore-threshold').value = z;
+        updateZScore(z);
+      }
+      if (cfg.rolling_window !== undefined) {
+        const w = parseInt(cfg.rolling_window);
+        document.getElementById('rolling-window').value = w;
+        updateWindow(w);
+      }
+      if (cfg.min_borrow_size !== undefined) {
+        const m = parseFloat(cfg.min_borrow_size);
+        document.getElementById('min-borrow-size').value = m;
+        updateMinSize(m);
+      }
+      console.log('Loaded persisted config:', cfg);
+    })
+    .catch(() => console.log('Could not load persisted config — using UI defaults'));
+}
+
+// ─── RESET ───
+function resetControls() {
+  document.getElementById('zscore-threshold').value = defaults.zscore;
+  document.getElementById('rolling-window').value = defaults.window;
+  document.getElementById('min-borrow-size').value = defaults.minSize;
+  document.getElementById('poll-interval').value = defaults.poll;
+  updateZScore(defaults.zscore);
+  updateWindow(defaults.window);
+  updateMinSize(defaults.minSize);
+  updatePoll(defaults.poll);
+  state.mode = defaults.mode;
+  document.querySelectorAll('.toggle-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  setAllAssets(true);
+  filterTable();
+}
+
+// ─── CLOCK ───
+function updateClock() {
+  const now = new Date();
+  document.getElementById('last-update-ts').textContent =
+    now.toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ─── INIT ───
+document.addEventListener('DOMContentLoaded', () => {
+  loadPersistedConfig();
+  filterTable();
+});
+</script>
+</body>
+</html>

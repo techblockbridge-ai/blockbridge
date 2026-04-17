@@ -1,0 +1,12 @@
+{% if borrows %}
+  {% for b in borrows %}
+  <div class="borrow-row">
+    <span class="ts-cell">{{ b.timestamp[11:16] }}</span>
+    <span class="asset-tag">{{ b.asset }}</span>
+    <span class="amount-cell">${{ "{:,.0f}".format(b.amount_usd) }}</span>
+    <span class="wallet-cell">{{ b.wallet }}</span>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="empty-state" style="padding:1.5rem">No borrows loaded</div>
+{% endif %}

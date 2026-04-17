@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BlockBridge — Aave Weather Report</title>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0: #070b0f;
+  --bg1: #0c1219;
+  --bg2: #111820;
+  --bg3: #18212c;
+  --bg4: #1e2a38;
+  --border: rgba(99,163,255,0.10);
+  --border-hi: rgba(99,163,255,0.22);
+  --text-primary: #e2eaf4;
+  --text-secondary: #7a90a8;
+  --text-muted: #3d5268;
+  --accent: #3b82f6;
+  --accent-glow: rgba(59,130,246,0.18);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.12);
+  --purple: #a78bfa;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --radius: 10px;
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.shell { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ─── HEADER ─── */
+header {
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,11,15,0.9);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-mark {
+  width: 26px; height: 26px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.logo-sub { color: var(--text-muted); font-weight: 400; font-size: 0.78rem; }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+.header-link {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all var(--transition);
+}
+.header-link:hover { border-color: var(--accent); color: var(--accent); }
+
+.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-secondary); font-family: var(--mono); }
+.pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.4)} 50%{opacity:0.6;box-shadow:0 0 0 4px rgba(34,197,94,0)} }
+.last-update { font-family: var(--mono); font-size: 0.68rem; color: var(--text-muted); }
+
+main { padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* ─── SECTION LABELS ─── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::after { content:''; flex:1; height:1px; background: var(--border); }
+
+/* ─── STAT CARDS ─── */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  position: relative;
+  overflow: visible;
+  transition: border-color var(--transition), background var(--transition);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-color, var(--accent));
+  opacity: 0.6;
+}
+.stat-card:hover { border-color: var(--border-hi); background: var(--bg3); }
+.stat-label { font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+.stat-value { font-family: var(--mono); font-size: 2rem; font-weight: 600; line-height: 1; margin-bottom: 0.25rem; }
+.stat-meta { font-size: 0.68rem; color: var(--text-muted); }
+
+/* ─── STATUS CARD ─── */
+.status-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.status-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; opacity:0.8; }
+.status-card.CLEAR::before    { background: var(--green); }
+.status-card.ELEVATED::before { background: var(--amber); }
+.status-card.STORM::before    { background: var(--red); }
+
+.status-icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.status-icon.CLEAR    { background: var(--green-dim); border: 1px solid rgba(34,197,94,0.25); }
+.status-icon.ELEVATED { background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.25); }
+.status-icon.STORM    { background: var(--red-dim);   border: 1px solid rgba(239,68,68,0.25); }
+
+.status-body { flex: 1; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  white-space: nowrap;
+  margin-bottom: 0.5rem;
+}
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+.badge-CLEAR    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.badge-CLEAR .badge-dot { background: var(--green); }
+.badge-ELEVATED { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.badge-ELEVATED .badge-dot { background: var(--amber); }
+.badge-STORM    { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.badge-STORM .badge-dot { background: var(--red); }
+
+.status-headline { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.35rem; line-height: 1.3; }
+.status-detail { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; }
+
+.status-trend {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 0.75rem;
+  padding: 4px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+.trend-arrow { font-size: 0.82rem; }
+.trend-arrow.RISING  { color: var(--red); }
+.trend-arrow.FALLING { color: var(--green); }
+.trend-arrow.STABLE  { color: var(--text-muted); }
+
+/* ─── ASSET GRID ─── */
+.asset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.asset-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  transition: border-color var(--transition), background var(--transition);
+}
+.asset-card:hover { border-color: var(--border-hi); background: var(--bg3); }
+.asset-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+
+.asset-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.2);
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--purple);
+  font-family: var(--mono);
+}
+.condition-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.condition-dot.CLEAR    { background: var(--green); box-shadow: 0 0 5px rgba(34,197,94,0.4); }
+.condition-dot.ELEVATED { background: var(--amber); box-shadow: 0 0 5px rgba(245,158,11,0.4); }
+.condition-dot.STORM    { background: var(--red);   box-shadow: 0 0 5px rgba(239,68,68,0.4); }
+
+.asset-condition { font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem; }
+.asset-condition.CLEAR    { color: var(--green); }
+.asset-condition.ELEVATED { color: var(--amber); }
+.asset-condition.STORM    { color: var(--red); }
+
+.asset-stats { display: flex; gap: 12px; font-family: var(--mono); font-size: 0.62rem; color: var(--text-muted); }
+.asset-stat-val { color: var(--text-secondary); }
+
+/* ─── SIGNAL FEED ─── */
+.table-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: visible;
+}
+.signal-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.signal-row:last-child { border-bottom: none; }
+.signal-row:hover { background: var(--bg3); }
+
+.signal-badge {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.signal-badge.HIGH   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(239,68,68,0.3); }
+.signal-badge.MEDIUM { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.signal-badge .sbdot { width: 5px; height: 5px; border-radius: 50%; }
+.signal-badge.HIGH .sbdot   { background: var(--red); }
+.signal-badge.MEDIUM .sbdot { background: var(--amber); }
+
+.signal-body { flex: 1; }
+.signal-text { font-size: 0.82rem; color: var(--text-primary); line-height: 1.65; }
+.signal-meta { display: flex; gap: 12px; font-family: var(--mono); font-size: 0.65rem; color: var(--text-muted); margin-top: 0.35rem; }
+
+.empty-state {
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.empty-state svg { display: block; margin: 0 auto 12px; opacity: 0.3; }
+
+/* ─── EXPLAINER STRIP ─── */
+.explainer-strip {
+  background: rgba(59,130,246,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.explainer-strip .icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.explainer-strip strong { color: var(--text-primary); }
+.explainer-strip a { color: var(--accent); text-decoration: none; }
+.explainer-strip a:hover { text-decoration: underline; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(2,1fr); }
+  .asset-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 600px) {
+  main { padding: 1rem; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .asset-grid { grid-template-columns: 1fr; }
+  .status-card { flex-direction: column; gap: 1rem; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">BB</div>
+    BlockBridge
+    <span class="logo-sub">/ Weather Report</span>
+  </div>
+  <div class="header-right">
+    <a href="/" class="header-link">◈ Full Dashboard</a>
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>LIVE</span>
+    </div>
+    <div class="last-update" id="last-update-ts">Syncing...</div>
+  </div>
+</header>
+
+<main>
+
+<!-- PROTOCOL STATUS -->
+<div>
+  <div class="section-label">Protocol status</div>
+  <div class="status-card {{ status }}">
+    <div class="status-icon {{ status }}">
+      {% if status == 'CLEAR' %}☀{% elif status == 'ELEVATED' %}⛅{% else %}⛈{% endif %}
+    </div>
+    <div class="status-body">
+      <span class="badge badge-{{ status }}">
+        <span class="badge-dot"></span>
+        {{ status }}
+      </span>
+      <div class="status-headline">{{ status_headline }}</div>
+      <div class="status-detail">{{ status_detail }}</div>
+      <div class="status-trend">
+        <span class="trend-arrow {{ trend }}">{% if trend == 'RISING' %}↗{% elif trend == 'FALLING' %}↘{% else %}→{% endif %}</span>
+        {{ trend_text }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div>
+  <div class="section-label">Monitoring scope</div>
+  <div class="stats-grid">
+    <div class="stat-card" style="--accent-color: var(--purple)">
+      <div class="stat-label">Borrows tracked</div>
+      <div class="stat-value" style="color:var(--purple)">{{ total_borrows }}</div>
+      <div class="stat-meta">across all assets</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--amber)">
+      <div class="stat-label">Anomalies flagged</div>
+      <div class="stat-value" style="color:var(--amber)">{{ total_anomalies }}</div>
+      <div class="stat-meta">all time</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--red)">
+      <div class="stat-label">Last 24 hours</div>
+      <div class="stat-value" style="color:var(--red)">{{ recent_24h }}</div>
+      <div class="stat-meta">anomalies detected</div>
+    </div>
+    <div class="stat-card" style="--accent-color: var(--green)">
+      <div class="stat-label">Last data pull</div>
+      <div class="stat-value" style="font-size:0.9rem;padding-top:6px;color:var(--green)">{{ last_ingest[:19].replace('T',' ') if last_ingest else 'N/A' }}</div>
+      <div class="stat-meta">UTC · 60s poll</div>
+    </div>
+  </div>
+</div>
+
+<!-- ASSET CONDITIONS -->
+<div>
+  <div class="section-label">Conditions by asset</div>
+  <div class="asset-grid">
+    {% for a in assets[:8] %}
+    <div class="asset-card">
+      <div class="asset-card-top">
+        <span class="asset-tag">{{ a.name }}</span>
+        <span class="condition-dot {{ a.condition }}"></span>
+      </div>
+      <div class="asset-condition {{ a.condition }}">{{ a.condition_text }}</div>
+      <div class="asset-stats">
+        <span><span class="asset-stat-val">{{ a.borrow_count }}</span> borrows</span>
+        <span><span class="asset-stat-val">{{ a.anomaly_count }}</span> flagged</span>
+        {% if a.max_zscore > 0 %}
+        <span>peak <span class="asset-stat-val">{{ "%.1f"|format(a.max_zscore) }}σ</span></span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- RECENT SIGNALS -->
+<div>
+  <div class="section-label">Recent signals
+    <span style="font-size:0.62rem;color:var(--accent);margin-left:4px">plain English · most recent first</span>
+  </div>
+  <div class="table-wrap">
+    {% if signals %}
+      {% for s in signals %}
+      <div class="signal-row">
+        <span class="signal-badge {{ s.risk_label }}">
+          <span class="sbdot"></span>
+          {{ s.risk_label }}
+        </span>
+        <div class="signal-body">
+          <div class="signal-text">{{ s.narrative }}</div>
+          <div class="signal-meta">
+            <span>{{ s.asset }}</span>
+            <span>${{ "{:,.0f}".format(s.amount) }}</span>
+            <span>{{ s.ago }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="13" stroke="#3d5268" stroke-width="1.5"/><path d="M16 10v7M16 21v1" stroke="#3d5268" stroke-width="1.5" stroke-linecap="round"/></svg>
+        All clear — no unusual borrows detected recently
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- EXPLAINER -->
+<div class="explainer-strip">
+  <span class="icon">ℹ</span>
+  <div>
+    <strong>What you're looking at:</strong>
+    BlockBridge monitors <strong>Aave V3 on Ethereum</strong> for abnormal borrowing activity.
+    When a borrow is statistically unusual compared to recent activity for that asset, it gets flagged.
+    This page summarises current conditions in plain language. It refreshes every 60 seconds.
+    For full data, threshold controls, and per-anomaly investigation, use the
+    <a href="/">full dashboard</a>.
+    <strong>This is not financial advice.</strong>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+function tick() {
+  document.getElementById('last-update-ts').textContent =
+    new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+tick();
+setInterval(tick, 1000);
+setTimeout(() => location.reload(), 60000);
+</script>
+</body>
+</html>

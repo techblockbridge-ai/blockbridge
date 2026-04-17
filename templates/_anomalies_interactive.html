@@ -1,0 +1,84 @@
+{% if anomalies %}
+<table>
+  <thead>
+    <tr>
+      <th onclick="sortBy('label')" class="sorted">Risk <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('asset')">Asset <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('amount')">Amount <span class="sort-arrow">↕</span></th>
+      <th onclick="sortBy('zscore')">Z-Score <span class="sort-arrow">↕</span></th>
+      <th>Risk score</th>
+      <th onclick="sortBy('detected')">Detected <span class="sort-arrow">↕</span></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in anomalies %}
+    <tr data-anomaly-row
+        data-row-id="{{ a.id }}"
+        data-asset="{{ a.asset }}"
+        data-wallet="{{ a.borrow_id }}"
+        data-label="{{ a.risk_label }}"
+        data-zscore="{{ a.zscore }}"
+        data-amount="{{ a.amount_usd }}"
+        data-detected="{{ a.detected_at }}"
+        data-is-contract="{{ 'true' if a.is_contract == 1 else 'false' }}"
+        onclick="toggleRow('{{ a.id }}')">
+      <td>
+        <span class="badge badge-{{ a.risk_label }}">
+          <span class="badge-dot"></span>
+          {{ a.risk_label }}
+        </span>
+      </td>
+      <td><span class="asset-tag">{{ a.asset }}</span></td>
+      <td class="amount-cell">${{ "{:,.0f}".format(a.amount_usd) }}</td>
+      <td class="zscore-cell">{{ "%.2f"|format(a.zscore) }}σ</td>
+      <td>
+        <div class="risk-bar-wrap">
+          <div class="risk-bar">
+            <div class="risk-bar-fill" style="width:{{ (a.risk_score * 10)|round }}%;background:{% if a.risk_score >= 7 %}var(--red){% elif a.risk_score >= 3 %}var(--amber){% else %}var(--green){% endif %}"></div>
+          </div>
+          <span class="risk-score-num" style="color:{% if a.risk_score >= 7 %}var(--red){% elif a.risk_score >= 3 %}var(--amber){% else %}var(--green){% endif %}">{{ "%.1f"|format(a.risk_score) }}</span>
+        </div>
+      </td>
+      <td class="ts-cell">{{ a.detected_at[:19].replace('T',' ') }}</td>
+      <td style="text-align:right;color:var(--text-muted);font-size:0.7rem">▸</td>
+    </tr>
+    <tr data-expand-for="{{ a.id }}" class="expand-row" style="display:none">
+      <td colspan="7">
+        <div class="expand-content">
+          <div class="expand-block">
+            <div class="expand-block-label">Borrow ID</div>
+            <div class="expand-block-value" style="font-family:var(--mono);font-size:0.7rem;word-break:break-all;color:var(--text-muted)">{{ a.borrow_id }}</div>
+          </div>
+          <div class="expand-block">
+            <div class="expand-block-label">Detection stats</div>
+            <div class="expand-block-value">
+              <span style="font-family:var(--mono);font-size:0.78rem">
+                z = {{ "%.4f"|format(a.zscore) }}<br>
+                risk = {{ "%.2f"|format(a.risk_adjusted if a.risk_adjusted is not none else a.risk_score) }} / 10<br>
+                flag = {{ a.risk_flag if a.risk_flag else "N/A" }}<br>
+                HF = {{ "%.2f"|format(a.health_factor) if a.health_factor is not none else "N/A" }}
+              </span>
+            </div>
+          </div>
+          <div class="expand-block">
+            <div class="expand-block-label">Amount (USD)</div>
+            <div class="expand-block-value" style="font-family:var(--mono);font-size:1.1rem;color:var(--text-primary)">${{ "{:,.2f}".format(a.amount_usd) }}</div>
+          </div>
+          <a href="/investigate/{{ a.id }}"
+             onclick="event.stopPropagation()"
+             style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;margin-top:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;color:#3b82f6;font-size:0.75rem;font-family:var(--mono);text-decoration:none;">
+            &#9656; Open full investigation &rarr;
+          </a>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="13" stroke="#3d5268" stroke-width="1.5"/><path d="M16 10v7M16 21v1" stroke="#3d5268" stroke-width="1.5" stroke-linecap="round"/></svg>
+  No anomalies detected — monitoring active
+</div>
+{% endif %}

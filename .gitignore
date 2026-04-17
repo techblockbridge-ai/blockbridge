@@ -1,0 +1,58 @@
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ─── Virtual environment ───
+blockbridge-env/
+venv/
+.venv/
+env/
+
+# ─── Data & database ───
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# ─── Secrets & config ───
+.env
+*.env
+
+# ─── IDE ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+
+# ─── Logs ───
+*.log
+logs/
+
+# ─── Transcripts ───
+transcripts/
+
+# ─── Misc files not part of the project ───
+*.zip
+*.bak
+0xa508b7*
+index (1).md
+git-init.sh
+
+# ─── Root-level stale copies (real ones are in templates/) ───
+/index.html
+/weather.html
+
+# ─── Unused templates ───
+templates/_anomalies.html
+templates/_borrows.html
