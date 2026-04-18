@@ -56,3 +56,22 @@ git-init.sh
 # ─── Unused templates ───
 templates/_anomalies.html
 templates/_borrows.html
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Archives
+*.zip
+
+# Backups
+*.bak
+
+# Data (optional - only if not source of truth)
+data/
+
+# OS
+.DS_Store
