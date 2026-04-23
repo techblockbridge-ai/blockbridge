@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — BlockBridge</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #06060b;
+    --bg-surface: #0c0c14;
+    --bg-card: #11111a;
+    --border: rgba(255,255,255,0.06);
+    --cyan: #00d4ff;
+    --cyan-dim: rgba(0,212,255,0.12);
+    --cyan-glow: rgba(0,212,255,0.25);
+    --red: #ef4444;
+    --green: #22c55e;
+    --text-primary: #e8e8ed;
+    --text-secondary: #8888a0;
+    --text-muted: #555566;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    z-index: 0;
+  }
+
+  .login-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px; height: 48px;
+    background: var(--cyan-dim);
+    border: 1px solid var(--cyan-glow);
+    border-radius: 10px;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--cyan);
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .login-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+
+  /* ── Form ── */
+  .form-group { margin-bottom: 20px; }
+
+  .form-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus {
+    border-color: var(--cyan-glow);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08);
+  }
+  .form-input::placeholder { color: var(--text-muted); }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--cyan-dim);
+    border: 1px solid var(--cyan-glow);
+    border-radius: 8px;
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .submit-btn:hover {
+    background: rgba(0,212,255,0.18);
+    border-color: rgba(0,212,255,0.5);
+  }
+  .submit-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 24px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--text-secondary); }
+
+  /* ── Messages ── */
+  .msg {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+  }
+  .msg-success {
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.2);
+    color: var(--green);
+  }
+  .msg-error {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: var(--red);
+  }
+
+  /* ── Check email state ── */
+  .check-email {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .check-email .icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    display: block;
+  }
+  .check-email h2 {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  .check-email p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .check-email .email-addr {
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+  }
+  .try-again {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 10px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .try-again:hover { border-color: var(--cyan-glow); color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<div class="login-card">
+  <div class="logo-mark">BB</div>
+
+  {% if sent %}
+    <!-- Check your email state -->
+    <div class="check-email">
+      <span class="icon">✉</span>
+      <h2>Check your email</h2>
+      <p>We sent a sign-in link to</p>
+      <div class="email-addr">{{ sent_to }}</div>
+      <p style="margin-top:16px; color:var(--text-muted); font-size:0.75rem;">
+        The link expires in 15 minutes. Check spam if you don't see it.
+      </p>
+      <a href="/login" class="try-again">← Try a different email</a>
+    </div>
+
+  {% else %}
+    <h1>Sign in</h1>
+    <p class="login-subtitle">
+      Enter your email to receive a magic sign-in link.<br>
+      Access is by invitation only.
+    </p>
+
+    {% if error %}
+      <div class="msg msg-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/auth/request-link" id="login-form">
+      <div class="form-group">
+        <label class="form-label" for="email">Email address</label>
+        <input class="form-input" type="email" id="email" name="email"
+               placeholder="you@example.com" required autofocus>
+      </div>
+      <button type="submit" class="submit-btn" id="submit-btn">
+        Send sign-in link →
+      </button>
+    </form>
+
+    <a href="/" class="back-link">← Back to BlockBridge</a>
+  {% endif %}
+</div>
+
+<script>
+document.getElementById('login-form')?.addEventListener('submit', function() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+});
+</script>
+</body>
+</html>

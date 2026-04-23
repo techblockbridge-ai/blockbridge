@@ -1,0 +1,411 @@
+<!-- _auth_overlay.html — Blur overlay + sign-in for unauthenticated visitors -->
+<!-- Include this at the END of index.html body, before </body> -->
+<!-- Included by index.html when authenticated=False -->
+
+<style>
+/* ── Auth lock: blur the dashboard ── */
+body.bb-locked .dashboard-content,
+body.bb-locked main,
+body.bb-locked .anomaly-feed,
+body.bb-locked .controls-section,
+body.bb-locked .borrow-feed,
+body.bb-locked .stats-grid,
+body.bb-locked .asset-distribution {
+  filter: blur(6px) saturate(0.5);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.5s ease;
+}
+
+/* Keep the top nav/header sharp but disable links */
+body.bb-locked .top-bar a,
+body.bb-locked .top-bar button,
+body.bb-locked nav a {
+  pointer-events: none;
+}
+
+/* ── Overlay backdrop ── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 11, 0.55);
+  backdrop-filter: blur(2px);
+  animation: overlayIn 0.6s ease both;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Sign-in card ── */
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #0f0f18;
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 16px;
+  padding: 48px 40px;
+  box-shadow:
+    0 0 80px rgba(0, 212, 255, 0.06),
+    0 24px 48px rgba(0, 0, 0, 0.5);
+  animation: cardIn 0.5s ease 0.2s both;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  font-size: 20px;
+  color: #00d4ff;
+  margin-bottom: 28px;
+  box-shadow: 0 0 30px rgba(0, 212, 255, 0.08);
+}
+
+.auth-card h2 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e8e8ed;
+  margin-bottom: 8px;
+}
+
+.auth-card .auth-desc {
+  font-size: 0.85rem;
+  color: #8888a0;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.auth-card .auth-desc strong {
+  color: #b0b0c0;
+  font-weight: 500;
+}
+
+/* ── Form elements ── */
+.auth-field {
+  margin-bottom: 16px;
+}
+
+.auth-label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #555566;
+  margin-bottom: 8px;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: #0a0a12;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: #e8e8ed;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-input:focus {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.06);
+}
+
+.auth-input::placeholder {
+  color: #444455;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  border-radius: 8px;
+  color: #00d4ff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+}
+
+.auth-submit:hover {
+  background: rgba(0, 212, 255, 0.16);
+  border-color: rgba(0, 212, 255, 0.45);
+  box-shadow: 0 0 24px rgba(0, 212, 255, 0.1);
+}
+
+.auth-submit:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.auth-invite-note {
+  text-align: center;
+  margin-top: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: #444455;
+  letter-spacing: 0.5px;
+}
+
+/* ── Message banners ── */
+.auth-msg {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.auth-msg-success {
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.auth-msg-error {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ── Check-your-email state ── */
+.auth-sent {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.auth-sent .mail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: 50%;
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.auth-sent h3 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.05rem;
+  color: #e8e8ed;
+  margin-bottom: 10px;
+}
+
+.auth-sent p {
+  color: #8888a0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.auth-sent .sent-email {
+  color: #00d4ff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem;
+  display: block;
+  margin: 8px 0 16px;
+}
+
+.auth-sent .auth-retry {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: #8888a0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.auth-retry:hover {
+  border-color: rgba(0, 212, 255, 0.2);
+  color: #b0b0c0;
+}
+
+/* ── Live badge on overlay ── */
+.auth-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  border-radius: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  color: #22c55e;
+  letter-spacing: 0.5px;
+  margin-bottom: 24px;
+}
+
+.auth-live-badge .pulse {
+  width: 6px;
+  height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  animation: livePulse 2s ease infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+}
+
+/* ── Mobile ── */
+@media (max-width: 500px) {
+  .auth-card {
+    margin: 16px;
+    padding: 36px 28px;
+  }
+}
+</style>
+
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">BB</div>
+
+    <!-- Default: sign-in form -->
+    <div id="auth-form-state">
+      <div class="auth-live-badge"><span class="pulse"></span> LIVE — MONITORING AAVE V3</div>
+      <h2>Sign in to access</h2>
+      <p class="auth-desc">
+        The dashboard behind you is <strong>live</strong> — tracking anomalies in real time.
+        Sign in with your email to unlock full access.
+      </p>
+
+      <div id="auth-error" class="auth-msg auth-msg-error" style="display:none;"></div>
+
+      <form id="auth-form" onsubmit="return handleAuthSubmit(event)">
+        <div class="auth-field">
+          <label class="auth-label" for="auth-email">Email address</label>
+          <input class="auth-input" type="email" id="auth-email" name="email"
+                 placeholder="you@example.com" required autofocus autocomplete="email">
+        </div>
+        <button type="submit" class="auth-submit" id="auth-btn">
+          Send sign-in link →
+        </button>
+      </form>
+      <div class="auth-invite-note">Access is by invitation only</div>
+    </div>
+
+    <!-- After submission: check your email -->
+    <div id="auth-sent-state" style="display:none;">
+      <div class="auth-sent">
+        <div class="mail-icon">✉</div>
+        <h3>Check your email</h3>
+        <p>We sent a sign-in link to</p>
+        <span class="sent-email" id="auth-sent-email"></span>
+        <p style="color:#555566; font-size:0.72rem;">
+          Expires in 15 minutes · Check spam if needed
+        </p>
+        <button class="auth-retry" onclick="resetAuthForm()">← Try a different email</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Lock the body
+document.body.classList.add('bb-locked');
+
+// Disable all HTMX polling while locked
+if (typeof htmx !== 'undefined') {
+  document.querySelectorAll('[hx-trigger*="every"]').forEach(el => {
+    el.removeAttribute('hx-trigger');
+  });
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('auth-btn');
+  const email = document.getElementById('auth-email').value.trim();
+  const errDiv = document.getElementById('auth-error');
+
+  if (!email) return false;
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  errDiv.style.display = 'none';
+
+  try {
+    const resp = await fetch('/auth/request-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'email=' + encodeURIComponent(email)
+    });
+
+    const data = await resp.json();
+
+    if (data.ok) {
+      document.getElementById('auth-form-state').style.display = 'none';
+      document.getElementById('auth-sent-state').style.display = 'block';
+      document.getElementById('auth-sent-email').textContent = email;
+    } else {
+      errDiv.textContent = data.message || 'Something went wrong. Try again.';
+      errDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Send sign-in link →';
+    }
+  } catch (err) {
+    errDiv.textContent = 'Network error. Please try again.';
+    errDiv.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Send sign-in link →';
+  }
+
+  return false;
+}
+
+function resetAuthForm() {
+  document.getElementById('auth-form-state').style.display = 'block';
+  document.getElementById('auth-sent-state').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-btn').disabled = false;
+  document.getElementById('auth-btn').textContent = 'Send sign-in link →';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-email').focus();
+}
+</script>

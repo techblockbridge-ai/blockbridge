@@ -1026,7 +1026,7 @@ td { padding: 0.75rem 1rem; vertical-align: middle; }
             <span style="font-family:var(--mono);font-size:0.68rem;color:var(--text-muted)">{{ count }} events</span>
           </div>
           <div class="risk-bar" style="height:6px">
-            <div class="risk-bar-fill" style="width:{{ (count / borrows|length * 100)|round(1) }}%;background:var(--accent)"></div>
+            <div class="risk-bar-fill" style="width:{{ ((count / (borrows|length)) * 100)|round(1) if borrows|length > 0 else 0 }}%;background:var(--accent)"></div>
           </div>
         </div>
         {% endfor %}
@@ -1292,5 +1292,8 @@ document.addEventListener('DOMContentLoaded', () => {
   filterTable();
 });
 </script>
+{% if not authenticated %}
+{% include '_auth_overlay.html' %}
+{% endif %}
 </body>
 </html>

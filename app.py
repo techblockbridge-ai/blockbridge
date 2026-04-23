@@ -2,9 +2,17 @@
 import sqlite3
 import httpx
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+import os
+from datetime import timedelta
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from auth import (
+    init_auth_tables, login_required, get_current_user,
+    request_magic_link, verify_token, create_session, destroy_session
+)
 
 app = Flask(__name__, template_folder="templates")
+app.secret_key = os.environ.get("BB_SECRET_KEY", "bb-dev-secret-change-in-prod")
+app.permanent_session_lifetime = timedelta(days=7)
 API_BASE = "http://localhost:8000/api"
 DB_PATH  = Path(__file__).parent / "data" / "blockbridge.db"
 
@@ -17,13 +25,45 @@ def fetch(endpoint):
         return {} if "stats" in endpoint else []
 
 @app.route("/")
-def index():
+def landing():
     stats     = fetch("stats")
     anomalies = fetch("anomalies")
     borrows   = fetch("borrows?limit=30")
-    return render_template("index.html", stats=stats, anomalies=anomalies, borrows=borrows)
+    user = get_current_user()
+    return render_template("index.html", stats=stats, anomalies=anomalies, borrows=borrows,
+                           authenticated=(user is not None))
+
+
+@app.route("/login")
+def login_page():
+    if get_current_user():
+        return redirect("/")
+    return render_template("login.html", sent=False, error=None)
+
+@app.route("/auth/request-link", methods=["POST"])
+def auth_request_link():
+    email = request.form.get("email", "").strip()
+    if not email:
+        return jsonify({"ok": False, "message": "Enter an email."})
+    success, message = request_magic_link(email)
+    return jsonify({"ok": success, "message": message})
+
+@app.route("/auth/verify/<token>")
+def auth_verify(token):
+    email = verify_token(token)
+    if not email:
+        return render_template("login.html", sent=False,
+                               error="Invalid or expired link. Request a new one.")
+    create_session(email)
+    return redirect("/")
+
+@app.route("/logout")
+def logout():
+    destroy_session()
+    return redirect("/")
 
 @app.route("/weather")
+@login_required
 def weather():
     """
     Aave Weather Report — plain-English market conditions at a glance.
@@ -193,14 +233,17 @@ def weather():
     )
 
 @app.route("/anomalies-table")
+@login_required
 def anomalies_table():
     return render_template("_anomalies_interactive.html", anomalies=fetch("anomalies"))
 
 @app.route("/borrows-feed")
+@login_required
 def borrows_feed():
     return render_template("_borrows_feed.html", borrows=fetch("borrows?limit=30"))
 
 @app.route("/api/stats-fragment")
+@login_required
 def stats_fragment():
     s = fetch("stats")
     return f'''<div class="stats-grid" id="stats-grid" hx-get="/api/stats-fragment" hx-trigger="every 60s" hx-swap="outerHTML">
@@ -227,6 +270,7 @@ def stats_fragment():
 </div>'''
 
 @app.route("/api/config", methods=["GET"])
+@login_required
 def config_get():
     try:
         r = httpx.get(f"{API_BASE}/config", timeout=5)
@@ -235,6 +279,7 @@ def config_get():
         return jsonify({"zscore_threshold": 2.0, "rolling_window": 50, "min_borrow_size": 0})
 
 @app.route("/api/config", methods=["POST"])
+@login_required
 def config():
     data = request.get_json()
     try:
@@ -244,6 +289,7 @@ def config():
         return jsonify({"status": "error", "message": "Backend unreachable — config not saved"}), 503
 
 @app.route("/api/chat", methods=["POST"])
+@login_required
 def chat_proxy():
     data = request.get_json()
     try:
@@ -253,6 +299,7 @@ def chat_proxy():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/investigate/<int:anomaly_id>")
+@login_required
 def investigate(anomaly_id):
     conn = sqlite3.connect(DB_PATH)
 
@@ -368,6 +415,8 @@ def wallet_profile(address):
 @app.route("/favicon.ico")
 def favicon():
     return "", 204
+
+init_auth_tables()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
