@@ -214,6 +214,15 @@ def init_db():
             """, (token_amount, token_amount, price, price, row_id))
         log.info("Backfill complete — %d rows updated with fallback prices", len(legacy))
 
+    # ─── Backfill-2: tag existing untagged rows as aave-v3 ───
+    n_untagged = conn.execute("""
+        UPDATE borrows
+        SET protocol = 'aave-v3'
+        WHERE protocol IS NULL OR protocol = ''
+    """).rowcount
+    if n_untagged:
+        log.info("Backfill complete — %d rows tagged protocol=aave-v3", n_untagged)
+
     conn.commit()
     conn.close()
     log.info("Database initialised at %s", DB_PATH)
@@ -243,7 +252,7 @@ def fetch_borrows(api_key: str) -> list[dict]:
         log.error("Fetch failed: %s", e)
         return []
 
-def normalise(borrow: dict) -> dict:
+def normalise(borrow: dict, *, protocol: str = "aave-v3") -> dict:
     """
     Convert raw subgraph borrow into a DB-ready record.
     Prices are looked up from the module-level _price_cache
@@ -270,6 +279,7 @@ def normalise(borrow: dict) -> dict:
         "decimals":        decimals,
         "timestamp":       int(borrow["timestamp"]),
         "ingested_at":     datetime.utcnow().isoformat(),
+        "protocol":        protocol,
     }
 
 def save_borrows(records: list[dict]) -> int:
@@ -283,9 +293,9 @@ def save_borrows(records: list[dict]) -> int:
             conn.execute("""
                 INSERT OR IGNORE INTO borrows
                 (id, wallet, asset, amount_raw, amount_tokens, amount_usd,
-                 price_at_ingest, price_source, decimals, timestamp, ingested_at)
+                 price_at_ingest, price_source, decimals, timestamp, ingested_at, protocol)
                 VALUES (:id, :wallet, :asset, :amount_raw, :amount_tokens, :amount_usd,
-                        :price_at_ingest, :price_source, :decimals, :timestamp, :ingested_at)
+                        :price_at_ingest, :price_source, :decimals, :timestamp, :ingested_at, :protocol)
             """, r)
             if conn.total_changes > inserted:
                 inserted += 1
@@ -310,7 +320,7 @@ def run_ingest(api_key: str = ""):
     _price_cache = fetch_live_prices(symbols)
     log.info("Price cache: %s", {s: f"${p:,.2f}" for s, p in _price_cache.items()})
 
-    records = [normalise(b) for b in raw]
+    records = [normalise(b, protocol='aave-v3') for b in raw]
     inserted = save_borrows(records)
     log.info("Ingest complete — %d new records (prices: %s)", inserted,
              "live" if any(r["price_source"] == "coingecko" for r in records) else "fallback")
