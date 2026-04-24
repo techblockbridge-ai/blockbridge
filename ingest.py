@@ -184,6 +184,7 @@ def init_db():
     ensure_column(conn, "borrows",   "amount_tokens",     "amount_tokens REAL")
     ensure_column(conn, "borrows",   "price_at_ingest",   "price_at_ingest REAL")
     ensure_column(conn, "borrows",   "price_source",      "price_source TEXT")
+    ensure_column(conn, "borrows",   "protocol",          "protocol TEXT DEFAULT 'aave-v3'")
     ensure_column(conn, "anomalies", "wallet",            "wallet TEXT")
     ensure_column(conn, "anomalies", "tx_hash",           "tx_hash TEXT")
     ensure_column(conn, "anomalies", "risk_adjusted",     "risk_adjusted REAL")
