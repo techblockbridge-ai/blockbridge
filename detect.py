@@ -142,7 +142,7 @@ def rule_position_build(conn, wallet: str) -> dict | None:
         if len(rows) < cfg["min_borrows"]:
             continue
 
-        amounts = [to_usd(r[0], asset) for r in rows]
+        amounts = [float(r[0] or 0) for r in rows]
         first_avg = np.mean(amounts[:5])
         last_avg  = np.mean(amounts[-5:])
 
@@ -195,7 +195,7 @@ def rule_large_single(conn, wallet: str, recent_borrows: list) -> dict | None:
         return None
 
     for b in recent_borrows:
-        usd = to_usd(b["amount_usd"], b["asset"])
+        usd = float(b["amount_usd"] or 0)
         if usd >= cfg["min_usd"]:
             return {
                 "rule_id":  "LARGE_SINGLE",
@@ -358,7 +358,7 @@ def load_borrows_by_asset() -> dict:
             "id":         row[0],
             "wallet":     row[1],
             "asset":      asset,
-            "amount_usd": to_usd(row[3], asset),
+            "amount_usd": float(row[3] or 0),
             "timestamp":  row[4]
         })
     return by_asset
